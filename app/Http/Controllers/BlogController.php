@@ -12,6 +12,7 @@ use Google_Service_Gmail;
 use Google_Service_Gmail_Message;
 use Google_Service_Gmail_MessagePart;
 use Google_Service_Gmail_MessagePartHeader;
+use App\Services\GoogleService;
 use Exception;
 use Illuminate\Http\Request;
 
@@ -19,10 +20,12 @@ class BlogController extends Controller
 {
     protected $languageClient;
     protected $postType = 'blog';
+    protected $googleService;
     //
-    public function __construct()
+    public function __construct(GoogleService $googleService)
     {
         $this->languageClient = new LanguageClient();
+        $this->googleService = $googleService;
     }
 
     public function createBlog(Request $request)
@@ -306,88 +309,112 @@ class BlogController extends Controller
         }
     }
 
-    public function sendMail(Request $request)
+    public function searchBlogs(Request $request)
     {
         try {
-            // Validate the email
             $rules = [
-                'to_email' => 'required|email',
-                'subject' => 'required|string',
-                'body' => 'required|string',
+                'search' => 'required|string',
             ];
-
             $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
                 return $this->sendError($validator->errors(), 422);
             }
 
-            $toEmail = $request->input('to_email');
-            $subject = $request->input('subject');
-            $body = $request->input('body');
+            $searchKeyword = $request->input('search');
 
-            // Authenticate with Google API
-            $client = new Google_Client();
-            $client->setAuthConfig('/home/ashok/Downloads/client_secret_110002800197-ndvm7lsrqrgrq4mme5t7nl183g0u8cek.apps.googleusercontent.com.json');
-            $client->addScope(Google_Service_Gmail::GMAIL_SEND);
-            $client->setAccessType('offline');
+            $matchingBlogs = Posts::where('status', 'published')
+            ->where(function ($query) use ($searchKeyword) {
+                $query->where('post_title', 'like', '%' . $searchKeyword . '%')
+                    ->orWhere('post_description', 'like', '%' . $searchKeyword . '%')
+                    ->orWhere('post_content', 'like', '%' . $searchKeyword . '%')
+                    ->orWhere('category', 'like', '%' . $searchKeyword . '%');
+            })
+            ->get();
 
-            // Check for stored token
-            $tokenPath = '/home/ashok/Downloads/client_secret_110002800197-ndvm7lsrqrgrq4mme5t7nl183g0u8cek.apps.googleusercontent.com.json';
-            if (file_exists($tokenPath)) {
-                $accessToken = json_decode(file_get_contents($tokenPath), true);
-                $client->setAccessToken($accessToken);
-            } else {
-                // Redirect to OAuth URL for authorization if no token is stored
-                return $this->sendError('OAuth token not available', 401);
+            if ($matchingBlogs->isEmpty()) {
+                return $this->sendResponse([], 'No matching blogs found.');
             }
-
-            // Send the email if access is valid
-            if ($client->isAccessTokenExpired()) {
-                return $this->sendError('Access token expired', 401);
+            foreach ($matchingBlogs as $post) {
+                $post->post_likes = Likes::where('post_id', $post->id)->count();
+                $post->post_comments = Comments::where('post_id', $post->id)->get();
+                $post->post_comments_count = Comments::where('post_id', $post->id)->count();
+                $post->post_ratings = Rating::where('post_id', $post->id)->get();
+                if ($post->post_ratings->count() > 0) {
+                    $totalRating = $post->post_ratings->sum('rating');
+                    $post->average_rating = $totalRating / $post->post_ratings->count();
+                } else {
+                    $post->average_rating = 0;
+                }
             }
+            return $this->sendResponse($matchingBlogs, 'Matching blogs fetched successfully');
+    
 
-            $gmailService = new Google_Service_Gmail($client);
 
-            // Create the email
-            $message = new Google_Service_Gmail_Message();
-            $rawMessageString = $this->createMessage($toEmail, $subject, $body);
-            $rawMessage = base64url_encode($rawMessageString);
-            $message->setRaw($rawMessage);
-
-            // Send the message
-            $gmailService->users_messages->send('me', $message);
-
-            return $this->sendResponse([], 'Email sent successfully.');
         } catch (Exception $e) {
             return $this->sendError('Error sending email: ' . $e->getMessage(), 500);
         }
     }
 
-    // Helper function to create the raw email message in MIME format
-    private function createMessage($to, $subject, $body)
+    public function sendEmailToUser(Request $request)
     {
-        $headers = [
-            'To' => $to,
-            'Subject' => $subject,
-            'Content-Type' => 'text/html; charset=UTF-8',
-        ];
+        $email = $request->input('email');
+        $subject = "New Blog Notification";
+        $message = "Hello, this is a notification regarding your blog.";
 
-        $rawMessage = "Content-Type: text/html; charset=UTF-8\r\n";
-        foreach ($headers as $key => $value) {
-            $rawMessage .= "$key: $value\r\n";
+        try {
+            $this->googleService->sendEmail($email, $subject, $message);
+            return response()->json(['message' => 'Email sent successfully!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to send email', 'details' => $e->getMessage()]);
         }
-
-        $rawMessage .= "\r\n" . $body;
-        return $rawMessage;
     }
 
-    // Base64 URL encoding
-    function base64url_encode($data)
+    public function viewDeletedBlog(Request $request)
     {
-        return strtr(base64_encode($data), '+/', '-_');
+        try{
+            
+            $postData = Posts::where('status', 'archived')->get();
+            foreach ($postData as $post){
+                $post->post_likes = Likes::where('post_id', $post->id)->count();
+                $post->post_comments = Comments::where('post_id', $post->id)->get();
+                $post->post_comments_count = Comments::where('post_id', $post->id)->count();
+                $post->post_ratings = Rating::where('post_id', $post->id)->get();
+                if ($post->post_ratings->count() > 0) {
+                    $totalRating = $post->post_ratings->sum('rating');
+                    $post->average_rating = $totalRating / $post->post_ratings->count();
+                } else {
+                    $post->average_rating = 0;
+                }
+            }
+            return $this->sendResponse($postData,'Blog posts fetched successfully');
+        } catch (\Exception $e) {
+            return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
+        }
     }
 
+    public function retrieveDeletedBlog(Request $request)
+    {
+        try{
+            
+            $postId = $request->input('post_id');
 
-    
+            if (empty($postId)) {
+                return $this->sendError('Post ID is required.', 422);
+            }
+
+            $archivedPost = Posts::where('id', $postId)->where('status', 'archived')->first();
+
+            if (!$archivedPost) {
+                return $this->sendError('Archived post not found.', 404);
+            }
+            $archivedPost->status = 'published';
+            $archivedPost->save();
+
+            return $this->sendResponse($archivedPost, 'Archived post restored successfully.');
+
+        } catch (\Exception $e) {
+            return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
+        }
+    }
 }

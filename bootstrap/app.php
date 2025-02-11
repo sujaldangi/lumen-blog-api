@@ -128,10 +128,20 @@ $app->configure('filesystems');
 
 $app->middleware([
     App\Http\Middleware\CorsMiddleware::class,
+    Illuminate\Session\Middleware\StartSession::class,
  ]);
 
 $app->register(Illuminate\Session\SessionServiceProvider::class);
 $app->alias('session', Illuminate\Support\Facades\Session::class);
 $app->configure('session');
+
+
+$app->singleton(App\Services\GoogleService::class, function ($app) {
+    return new App\Services\GoogleService();
+});
+$app->register(App\Providers\FirebaseServiceProvider::class);
+
+
+
 
 return $app;
