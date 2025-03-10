@@ -2,40 +2,83 @@
 
 namespace App\Http\Controllers;
 
-use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
-    // Redirect the user to Google for authentication
-    public function redirectToGoogle()
-    {
-        return Socialite::driver('google')->redirect();
-    }
-
-    // Handle the callback from Google
-    public function handleGoogleCallback(Request $request)
+    // Register a new user and generate JWT token
+    public function register(Request $request)
     {
         try {
-            // Get the user's information from Google
-            $googleUser = Socialite::driver('google')->user();
+            // Validate input data
+            $this->validate($request, [
+                'name' => 'required|string',
+                'email' => 'required|email|unique:users',
+                'password' => 'required|min:6',
+            ]);
 
-           
-            // $googleUser->getId();
-            // $googleUser->getName();
-            // $googleUser->getEmail();
-            if (!$googleUser) {
-                return response()->json(['error' => 'Unable to retrieve Google user data'], 400);
-            }
-            // dd($googleUser);
+            // Create user and generate token
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
 
-            
-            auth()->login($user);
+            $token = JWTAuth::fromUser($user);
 
-            return response()->json(['user' => $user]);
-
+            return response()->json([
+                'token' => $token,
+                'user' => $user,
+            ], 201);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to authenticate with Google'], 400);
+            return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
+        }
+    }
+
+    // Login user and generate JWT token
+    public function login(Request $request)
+    {
+        try {
+            // Validate input data
+            $this->validate($request, [
+                'email' => 'required|email',
+                'password' => 'required',
+            ]);
+
+            // Attempt to authenticate and generate token
+            if (!$token = JWTAuth::attempt($request->only(['email', 'password']))) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            // Return token and user info
+            return response()->json([
+                'token' => $token,
+                'user' => auth()->user(),
+            ]);
+        } catch (\Exception $e) {
+            return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
+        }
+    }
+
+    // Get authenticated user info
+    public function me()
+    {
+        return response()->json(Auth::user());
+    }
+
+    // Logout user and invalidate token
+    public function logout()
+    {
+        try {
+            Auth::logout();
+
+            return response()->json(['message' => 'Successfully logged out']);
+        } catch (\Exception $e) {
+            return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
 }

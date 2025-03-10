@@ -76,9 +76,9 @@ $app->configure('app');
 //     App\Http\Middleware\ExampleMiddleware::class
 // ]);
 
-// $app->routeMiddleware([
-//     'auth' => App\Http\Middleware\Authenticate::class,
-// ]);
+$app->routeMiddleware([
+    'auth' => App\Http\Middleware\Authenticate::class,
+]);
 
 /*
 |--------------------------------------------------------------------------
@@ -92,7 +92,7 @@ $app->configure('app');
 */
 
 // $app->register(App\Providers\AppServiceProvider::class);
-// $app->register(App\Providers\AuthServiceProvider::class);
+$app->register(App\Providers\AuthServiceProvider::class);
 // $app->register(App\Providers\EventServiceProvider::class);
 
 /*
@@ -134,20 +134,8 @@ $app->middleware([
 $app->register(Illuminate\Session\SessionServiceProvider::class);
 $app->alias('session', Illuminate\Support\Facades\Session::class);
 $app->configure('session');
-
-
-$app->singleton(App\Services\GoogleService::class, function ($app) {
-    return new App\Services\GoogleService();
-});
-$app->register(App\Providers\FirebaseServiceProvider::class);
-
-$app->register(Laravel\Socialite\SocialiteServiceProvider::class);
 $app->configure('services');
-
-$app->register(Illuminate\Broadcasting\BroadcastServiceProvider::class);
-$app->register(App\Providers\EventServiceProvider::class);
-$app->configure('broadcasting');
-
-
-
+// Register JWT Provider
+$app->register(Tymon\JWTAuth\Providers\LumenServiceProvider::class);
+$app->configure('auth');
 return $app;

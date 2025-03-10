@@ -18,77 +18,24 @@ $router->get('/', function () use ($router) {
 });
 
 $router->group(['prefix' => 'api'], function () use ($router) {
-    $router->post('/create-blog', 'BlogController@createBlog');
-    $router->get('/get-blogs', 'BlogController@viewBlog');
-    $router->get('/delete-blog', 'BlogController@deleteBlog');
-    $router->get('/like-blog', 'BlogController@likeBlog');
-    $router->delete('/delete-comment', 'BlogController@deleteComment');
-    $router->get('/rate-blog', 'BlogController@rateBlog');
-    $router->put('/update-blog', 'BlogController@updateBlog');
+    $router->post('/register', 'AuthController@register');
+    $router->post('/login', 'AuthController@login');
 
-    $router->post('/send-email', 'BlogController@sendEmailToUser');
-    $router->get('/search-blog', 'BlogController@searchBlogs');
-    $router->get('/get-deleted-blogs', 'BlogController@viewDeletedBlog');
-    $router->post('/retrieve-deleted-blogs', 'BlogController@retrieveDeletedBlog');
+    $router->group(['middleware' => 'auth'], function () use ($router) {
+        $router->post('/create-blog', 'BlogController@createBlog');
+        $router->get('/get-blogs', 'BlogController@viewBlog');
+        $router->get('/delete-blog', 'BlogController@deleteBlog');
+        $router->get('/like-blog', 'BlogController@likeBlog');
+        $router->delete('/delete-comment', 'BlogController@deleteComment');
+        $router->get('/rate-blog', 'BlogController@rateBlog');
+        $router->put('/update-blog', 'BlogController@updateBlog');
 
-    
-    // // Google OAuth 2.0 Routes
-    // $router->get('/auth/google', function () {
-    //     $client = new Google_Client();
-    //     $client->setClientId(env('GOOGLE_CLIENT_ID'));
-    //     $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
-    //     $client->setRedirectUri(env('GOOGLE_REDIRECT_URI'));
-    //     $client->addScope(Google_Service_Gmail::GMAIL_SEND);
-
-    //     return redirect($client->createAuthUrl());
-    // });
-
-    // // Callback route after Google OAuth 2.0 authentication
-    // $router->get('/callback', function () {
-    //     $client = new Google_Client();
-    //     $client->setClientId(env('GOOGLE_CLIENT_ID'));
-    //     $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
-    //     $client->setRedirectUri(env('GOOGLE_REDIRECT_URI'));
-
-    //     $code = request('code');
-    //     $token = $client->fetchAccessTokenWithAuthCode($code);
-
-    //     // Save the access token to session or your database for later use
-    //     session(['google_access_token' => $token]);
-
-    //     return redirect('/');
-    // });
-
-
+        $router->post('/send-email', 'BlogController@sendEmailToUser');
+        $router->get('/search-blog', 'BlogController@searchBlogs');
+        $router->get('/get-deleted-blogs', 'BlogController@viewDeletedBlog');
+        $router->post('/retrieve-deleted-blogs', 'BlogController@retrieveDeletedBlog');
+        $router->post('/logout', 'AuthController@logout');
+    });
 });
 
-$router->get('/google/redirect', 'GoogleController@redirectToGoogle'); // Initiate OAuth flow
-$router->get('/google/callback', 'GoogleController@handleOAuthCallback');
 $router->post('/send-email', 'EmailController@sendEmail');
-
-$router->get('/token', 'NotificationController@createToken');
-$router->post('/send-notification', 'NotificationController@sendNotification');
-
-$router->post('/save-device-token', 'NotificationController@createToken');
-
-$router->get('/fcm', function () {
-    $response = response()->file(base_path('public/index.html'));
-    $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate');
-    return $response;
-});
-
-$router->post('/send-message', 'ChatController@sendMessage');
-$router->post('/start-chat', 'ChatController@startChat');
-$router->post('/start-group', 'ChatController@startGroupChat');
-$router->get('/get-chats', 'ChatController@getChats');
-
-$router->get('/auth/redirect', 'AuthController@redirectToGoogle');
-$router->get('/auth/callback', 'AuthController@handleGoogleCallback');
-
-$router->get('/chat', function () {
-    return response()->file(base_path('public/index.html'));
-});
-
-
-
-

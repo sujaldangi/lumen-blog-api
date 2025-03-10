@@ -6,32 +6,17 @@ use App\Models\Likes;
 use App\Models\Comments;
 use App\Models\Rating;
 use Illuminate\Support\Facades\Validator;
-use Google\Cloud\Language\LanguageClient;
-use Google_Client;
-use Google_Service_Gmail;
-use Google_Service_Gmail_Message;
-use Google_Service_Gmail_MessagePart;
-use Google_Service_Gmail_MessagePartHeader;
-use App\Services\GoogleService;
 use Exception;
 use Illuminate\Http\Request;
 
 class BlogController extends Controller
 {
-    protected $languageClient;
     protected $postType = 'blog';
-    protected $googleService;
-    //
-    public function __construct(GoogleService $googleService)
-    {
-        $this->languageClient = new LanguageClient();
-        $this->googleService = $googleService;
-    }
-
+    // Create a new blog post
     public function createBlog(Request $request)
     {
-        try{
-            
+        try {
+
             $rules = [
                 'post_title' => 'required|string|max:255',
                 'post_description' => 'required|string|max:255',
@@ -45,7 +30,7 @@ class BlogController extends Controller
             $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
-                return $this->sendError($validator->errors(),422);
+                return $this->sendError($validator->errors(), 422);
             }
 
 
@@ -53,45 +38,35 @@ class BlogController extends Controller
                 $image = $request->file('featured_image');
                 $imagePath = $image->store('featured_images', 'public');
                 $validatedData = $validator->validated();
-                $validatedData['featured_image'] = 'storage/'. $imagePath;
-               
+                $validatedData['featured_image'] = 'storage/' . $imagePath;
+
             } else {
-                
+
                 $validatedData = $validator->validated();
             }
             $validatedData['post_type'] = $this->postType;
-            
-            // $annotation = $this->languageClient->analyzeSentiment($validatedData['post_content']);
-            // $score = $annotation->sentiment()['score'];
-            // // dd($score);
-            // $threshold = 0.2;
-            // if ($score < $threshold) {
-            //     return $this->sendResponse([], 'Content not passed due to negativity or potential profanity.');
-            // }
-           
+
             $post = Posts::create($validatedData);
-            
-            return $this->sendResponse($post,'Blog post created successfully');
+
+            return $this->sendResponse($post, 'Blog post created successfully');
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
 
     }
-
+    // View blog posts, with optional category filtering
     public function viewBlog(Request $request)
     {
-        try{
-            if($request->has('category'))
-            {
-                $postData = Posts::where('category',$request->input('category'))->where('status','published')->get();
+        try {
+            if ($request->has('category')) {
+                $postData = Posts::where('category', $request->input('category'))->where('status', 'published')->get();
 
-            }else
-            {
-                // $postData = Posts::all()->where('status','published')->get();
+            } else {
                 $postData = Posts::where('status', 'published')->get();
 
             }
-            foreach ($postData as $post){
+            foreach ($postData as $post) {
+                // Attach likes, comments, ratings to each post
                 $post->post_likes = Likes::where('post_id', $post->id)->count();
                 $post->post_comments = Comments::where('post_id', $post->id)->get();
                 $post->post_comments_count = Comments::where('post_id', $post->id)->count();
@@ -103,38 +78,36 @@ class BlogController extends Controller
                     $post->average_rating = 0;
                 }
             }
-            return $this->sendResponse($postData,'Blog posts fetched successfully');
+            return $this->sendResponse($postData, 'Blog posts fetched successfully');
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Archive a blog post
     public function deleteBlog(Request $request)
     {
-        try{
-            if($request->has('post_id'))
-            {
+        try {
+            if ($request->has('post_id')) {
                 $blogId = $request->input('post_id');
                 $blog = Posts::where('id', $blogId)->where('status', 'published')->first();
 
                 if (!$blog) {
                     return $this->sendError('Blog not found', 404);
                 }
-                $postData = Posts::where('id',$request->input('post_id'))->update(['status'=>'archived']);
+                $postData = Posts::where('id', $request->input('post_id'))->update(['status' => 'archived']);
 
-            }else
-            {
-                return $this->sendError('id not given',422);
+            } else {
+                return $this->sendError('id not given', 422);
             }
-            return $this->sendResponse($postData,'Blog post archived successfully');
+            return $this->sendResponse($postData, 'Blog post archived successfully');
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Like or unlike a blog post
     public function likeBlog(Request $request)
     {
-        try{
+        try {
             $userId = $request->input('user_id');
             $blogId = $request->input('post_id');
             if (empty($userId) || empty($blogId)) {
@@ -157,16 +130,16 @@ class BlogController extends Controller
                 ]);
                 return $this->sendResponse([], 'Blog liked successfully');
             }
-    
+
 
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Add a comment to a blog post
     public function commentBlog(Request $request)
     {
-        try{
+        try {
             $userId = $request->input('user_id');
             $blogId = $request->input('post_id');
             $blogComment = $request->input('post_comment');
@@ -179,24 +152,24 @@ class BlogController extends Controller
                 return $this->sendError('Blog not found or blog archieved', 404);
             }
 
-            
+
             Comments::create([
                 'user_id' => $userId,
                 'post_id' => $blogId,
                 'post_comment' => $blogComment,
             ]);
             return $this->sendResponse([], 'Comment added to the blog');
-            
-    
+
+
 
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Delete a comment from a blog post
     public function deleteComment(Request $request)
     {
-        try{
+        try {
             $commentId = $request->input('comment_id');
             $comment = Comments::find($commentId);
             if (!$comment) {
@@ -208,10 +181,10 @@ class BlogController extends Controller
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Rate a blog post
     public function rateBlog(Request $request)
     {
-        try{
+        try {
             $rules = [
                 'rating' => 'required|integer|between:1,5',
             ];
@@ -219,10 +192,10 @@ class BlogController extends Controller
             $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
-                return $this->sendError($validator->errors(),422);
+                return $this->sendError($validator->errors(), 422);
             }
 
-            
+
             $userId = $request->input('user_id');
             $blogId = $request->input('post_id');
             $rating = $request->input('rating');
@@ -239,7 +212,7 @@ class BlogController extends Controller
 
             $ratingCheck = Rating::where('user_id', $userId)->where('post_id', $blogId)->first();
             if ($ratingCheck) {
-                
+
                 return $this->sendResponse([], 'You have already rated this blog.');
             } else {
                 Rating::create([
@@ -254,13 +227,13 @@ class BlogController extends Controller
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Update an existing blog post
     public function updateBlog(Request $request)
     {
-        try{
+        try {
             $authorId = $request->input('author_id');
             $blogId = $request->input('post_id');
-            
+
             if (empty($authorId) || empty($blogId)) {
                 return $this->sendError('User id or blog id not provided', 422);
             }
@@ -299,16 +272,16 @@ class BlogController extends Controller
             } else {
                 $validatedData = $validator->validated();
             }
-    
+
             $blog->update($validatedData);
-    
+
             return $this->sendResponse($blog, 'Blog post updated successfully');
 
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Search for blog posts by keyword
     public function searchBlogs(Request $request)
     {
         try {
@@ -324,13 +297,13 @@ class BlogController extends Controller
             $searchKeyword = $request->input('search');
 
             $matchingBlogs = Posts::where('status', 'published')
-            ->where(function ($query) use ($searchKeyword) {
-                $query->where('post_title', 'like', '%' . $searchKeyword . '%')
-                    ->orWhere('post_description', 'like', '%' . $searchKeyword . '%')
-                    ->orWhere('post_content', 'like', '%' . $searchKeyword . '%')
-                    ->orWhere('category', 'like', '%' . $searchKeyword . '%');
-            })
-            ->get();
+                ->where(function ($query) use ($searchKeyword) {
+                    $query->where('post_title', 'like', '%' . $searchKeyword . '%')
+                        ->orWhere('post_description', 'like', '%' . $searchKeyword . '%')
+                        ->orWhere('post_content', 'like', '%' . $searchKeyword . '%')
+                        ->orWhere('category', 'like', '%' . $searchKeyword . '%');
+                })
+                ->get();
 
             if ($matchingBlogs->isEmpty()) {
                 return $this->sendResponse([], 'No matching blogs found.');
@@ -348,34 +321,20 @@ class BlogController extends Controller
                 }
             }
             return $this->sendResponse($matchingBlogs, 'Matching blogs fetched successfully');
-    
+
 
 
         } catch (Exception $e) {
             return $this->sendError('Error sending email: ' . $e->getMessage(), 500);
         }
     }
-
-    public function sendEmailToUser(Request $request)
-    {
-        $email = $request->input('email');
-        $subject = "New Blog Notification";
-        $message = "Hello, this is a notification regarding your blog.";
-
-        try {
-            $this->googleService->sendEmail($email, $subject, $message);
-            return response()->json(['message' => 'Email sent successfully!']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to send email', 'details' => $e->getMessage()]);
-        }
-    }
-
+    // View archived (deleted) blog posts
     public function viewDeletedBlog(Request $request)
     {
-        try{
-            
+        try {
+
             $postData = Posts::where('status', 'archived')->get();
-            foreach ($postData as $post){
+            foreach ($postData as $post) {
                 $post->post_likes = Likes::where('post_id', $post->id)->count();
                 $post->post_comments = Comments::where('post_id', $post->id)->get();
                 $post->post_comments_count = Comments::where('post_id', $post->id)->count();
@@ -387,16 +346,16 @@ class BlogController extends Controller
                     $post->average_rating = 0;
                 }
             }
-            return $this->sendResponse($postData,'Blog posts fetched successfully');
+            return $this->sendResponse($postData, 'Blog posts fetched successfully');
         } catch (\Exception $e) {
             return $this->sendResponse([], 'Error occurred: ' . $e->getMessage());
         }
     }
-
+    // Restore a deleted (archived) blog post
     public function retrieveDeletedBlog(Request $request)
     {
-        try{
-            
+        try {
+
             $postId = $request->input('post_id');
 
             if (empty($postId)) {
