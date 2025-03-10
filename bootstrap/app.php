@@ -141,6 +141,12 @@ $app->singleton(App\Services\GoogleService::class, function ($app) {
 });
 $app->register(App\Providers\FirebaseServiceProvider::class);
 
+$app->register(Laravel\Socialite\SocialiteServiceProvider::class);
+$app->configure('services');
+
+$app->register(Illuminate\Broadcasting\BroadcastServiceProvider::class);
+$app->register(App\Providers\EventServiceProvider::class);
+$app->configure('broadcasting');
 
 
 

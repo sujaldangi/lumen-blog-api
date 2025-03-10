@@ -2,6 +2,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class CorsMiddleware
 {
@@ -22,15 +23,25 @@ class CorsMiddleware
             'Access-Control-Allow-Headers'     => 'Content-Type, Authorization, X-Requested-With'
         ];
 
-        if ($request->isMethod('OPTIONS'))
-        {
+        // Handle OPTIONS request
+        if ($request->isMethod('OPTIONS')) {
             return response()->json('{"method":"OPTIONS"}', 200, $headers);
         }
 
+        // Proceed to the next middleware/controller
         $response = $next($request);
-        foreach($headers as $key => $value)
-        {
-            $response->header($key, $value);
+
+        // Check if the response is a BinaryFileResponse
+        if ($response instanceof BinaryFileResponse) {
+            // Add CORS headers to file responses
+            foreach ($headers as $key => $value) {
+                $response->headers->set($key, $value);
+            }
+        } else {
+            // Add CORS headers to other responses
+            foreach ($headers as $key => $value) {
+                $response->header($key, $value);
+            }
         }
 
         return $response;

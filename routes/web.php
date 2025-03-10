@@ -64,7 +64,31 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
 $router->get('/google/redirect', 'GoogleController@redirectToGoogle'); // Initiate OAuth flow
 $router->get('/google/callback', 'GoogleController@handleOAuthCallback');
-$router->post('/send-email', 'EmailController@sendEmailToUser');
+$router->post('/send-email', 'EmailController@sendEmail');
+
+$router->get('/token', 'NotificationController@createToken');
 $router->post('/send-notification', 'NotificationController@sendNotification');
+
+$router->post('/save-device-token', 'NotificationController@createToken');
+
+$router->get('/fcm', function () {
+    $response = response()->file(base_path('public/index.html'));
+    $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return $response;
+});
+
+$router->post('/send-message', 'ChatController@sendMessage');
+$router->post('/start-chat', 'ChatController@startChat');
+$router->post('/start-group', 'ChatController@startGroupChat');
+$router->get('/get-chats', 'ChatController@getChats');
+
+$router->get('/auth/redirect', 'AuthController@redirectToGoogle');
+$router->get('/auth/callback', 'AuthController@handleGoogleCallback');
+
+$router->get('/chat', function () {
+    return response()->file(base_path('public/index.html'));
+});
+
+
 
 

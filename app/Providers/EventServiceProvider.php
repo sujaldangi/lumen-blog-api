@@ -2,28 +2,24 @@
 
 namespace App\Providers;
 
-use Laravel\Lumen\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
+use App\Events\MessageSent;
+use App\Listeners\MessageSentListener;
 
 class EventServiceProvider extends ServiceProvider
 {
     /**
-     * The event listener mappings for the application.
+     * Register any events for your application.
      *
-     * @var array
+     * @return void
      */
-    protected $listen = [
-        \App\Events\ExampleEvent::class => [
-            \App\Listeners\ExampleListener::class,
-        ],
-    ];
-
-    /**
-     * Determine if events and listeners should be automatically discovered.
-     *
-     * @return bool
-     */
-    public function shouldDiscoverEvents()
+    public function register()
     {
-        return false;
+        // Register the event and listener in the register method
+        Event::listen(
+            MessageSent::class,
+            MessageSentListener::class
+        );
     }
 }

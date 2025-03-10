@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+</head>
+
+<body>
+    <div id="chat-box">
+        <div id="messages"></div>
+        <input type="text" id="message-input" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        // Initialize Pusher
+        Pusher.logToConsole = true;
+        var pusher = new Pusher('24c0536b2bb45e29a90e', {
+            cluster: 'ap2'
+        });
+
+        // Subscribe to the chat channel
+        var channel = pusher.subscribe('chat-channel');
+
+
+        channel.bind('MessageSent', function (data) {
+            console.log('Message received via Pusher:', data);
+            const message = data.message;
+
+
+            // Create a new message element
+            const messageElement = document.createElement('div');
+            messageElement.innerHTML = `
+            <strong>${message}</strong>: <br>
+            
+        `;
+
+            // Append the new message to the messages container
+            document.getElementById('messages').appendChild(messageElement);
+        });
+
+
+        // Function to send message
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value;
+            const senderId = '110'; 
+            const receiverId = '111'; 
+
+
+
+            // Clear input field
+            messageInput.value = '';
+
+            // Send the message to the server
+            fetch('http://localhost:8000/send-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sender_id: senderId,
+                    message: message,
+                    chat_type: 'individual',
+                    receiver_id: receiverId,
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Message sent:', data);
+                })
+                .catch(error => console.error('Error sending message:', error));
+        }
+
+        // Function to fetch existing messages
+        function getMessage() {
+            const userID = '110';  // Replace with actual user ID
+
+            fetch(`http://localhost:8000/get-chats?user_id=${userID}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Chats fetched:', data);
+
+                    const messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';
+
+                    data.data.forEach(chat => {
+                        const groupName = chat.group_name ? `<strong>${chat.group_name}</strong>` : "Direct chat";
+                        const chatElement = document.createElement('div');
+                        chatElement.classList.add('chat');
+                        chatElement.innerHTML = `<p>${groupName}</p>`;
+
+                        if (chat.messages && Object.keys(chat.messages).length > 0) {
+                            Object.values(chat.messages).forEach(message => {
+                                const messageElement = document.createElement('div');
+                                const senderId = message.sender_id;
+                                const content = message.content;
+                                const timestamp = message.timestamp;
+
+                                messageElement.innerHTML = `
+                                <strong>User ${senderId}</strong>: ${content} <br>
+                                <small>${timestamp}</small>
+                            `;
+                                chatElement.appendChild(messageElement);
+                            });
+                        } else {
+                            const noMessagesElement = document.createElement('div');
+                            noMessagesElement.textContent = "No messages yet";
+                            chatElement.appendChild(noMessagesElement);
+                        }
+
+                        messagesContainer.appendChild(chatElement);
+                    });
+                })
+                .catch(error => console.error('Error fetching messages:', error));
+        }
+
+        // Fetch messages when the page loads
+        document.addEventListener('DOMContentLoaded', function () {
+            getMessage();
+        });
+    </script>
+</body>
+
+</html>

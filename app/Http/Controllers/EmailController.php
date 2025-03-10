@@ -8,10 +8,17 @@ use Google_Service_Gmail;
 use Google_Service_Gmail_Message;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\File;
+use App\Services\GmailService;
  
  
 class EmailController extends Controller
 {
+    protected $gmailService;
+    public function __construct(GmailService $gmailService)
+    {
+        $this->gmailService = $gmailService;
+    }
+    
     public function sendEmailToUser(Request $request)
     {
         // Get the email and message from the request
@@ -65,7 +72,17 @@ class EmailController extends Controller
         }
     }
  
-   
+    public function sendEmail(Request $request)
+    {
+        $to = $request->input('to');
+        $subject = $request->input('subject');
+        $body = $request->input('body');
+
+        $result = $this->gmailService->sendEmail($to, $subject, $body);
+
+        return response()->json(['message' => $result]);
+    }
+
     private function createMessage($to, $subject, $messageText)
     {
         $message = "To: " . $to . "\r\n";
